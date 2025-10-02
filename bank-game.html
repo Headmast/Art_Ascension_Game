@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Банковский квест</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Подключение шрифтов */
+        @font-face {
+            font-family: 'Gazprombank Sans DemiBold';
+            src: url('Fonts/Gazprombank Sans DemiBold.ttf') format('truetype');
+            font-weight: 600;
+            font-style: normal;
+            font-display: swap;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Roboto, Arial, sans-serif;
+            position: relative;
+
+            /* два слоя: 1) изображение (сверху), 2) заливка цветом (снизу) */
+            background-image: url('bank-bg.png'), linear-gradient(#F5F5DC, #F5F5DC);
+            background-position: center top, center;
+            background-size: cover, 100% 100%;
+            background-repeat: no-repeat, no-repeat;
+
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #56FFFF;
+        }
+
+        /* Верхняя панель со счётом и иконками */
+        header {
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            text-align: right;
+            background: rgba(0, 0, 0, 0.65);
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+        }
+
+        .score-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Основная игровая зона */
+        .game-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            padding: 0 15px;
+            margin-top: 0;
+            z-index: 10;
+        }
+
+        /* Сцена с персонажем и облаком */
+        .scene {
+            width: 100%;
+            max-width: 560px;
+            margin-top: 0;
+        }
+
+        .scene-anchor {
+            position: relative;
+            width: 100%;
+            max-width: 560px;
+            margin: 0 auto;
+            display: grid;
+            align-items: center;
+            justify-items: start;
+            aspect-ratio: 5 / 4;
+        }
+
+        /* Персонаж стоит на полу */
+        .visitor-img {
+            width: min(42%, 220px);
+            height: auto;
+            max-height: 45%;
+            object-fit: contain;
+            z-index: 1;
+            align-self: end;
+            position: relative;
+            top: -41.5%; 
+            left: 5%;
+        }
+
+        /* Позиционирование пузыря */
+        :root {
+            --bubble-top: 10%;
+            --bubble-left: 5%;
+            --bubble-width: 90%;
+            --bubble-right: 5%;
+        }
+
+        .speech {
+            position: absolute;
+            top: var(--bubble-top);
+            left: var(--bubble-left);
+            width: var(--bubble-width);
+            height: auto;
+            object-fit: contain;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .speech-text {
+            position: absolute;
+            top: 15%; 
+            left: 48%;
+            width: calc(var(--bubble-width) - 50%);
+            max-height: 46%;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            hyphens: auto;
+            line-height: 1.35;
+            font-size: clamp(14px, 2.2vw, 19px);
+            font-weight: 700;
+            color: #56FFFF;
+            z-index: 3;
+        }
+
+        /* Кнопки с цветами из общей палитры банка */
+        .choices {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 10px 15px 5vh 15px;
+            /* отступы на маленьких экранах */
+        }
+
+        .choices button {
+            padding: 16px 20px;
+            border: 3px solid #56FFFF;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-family: 'Halvar Breitschrift-Medium-Web', "Segoe UI", Roboto, Arial, sans-serif;
+            /* font-family: 'Gazprombank Sans DemiBold', "Segoe UI", Roboto, Arial, sans-serif; */
+            font-weight: 600;
+            background: #000000;
+            color: #56FFFF;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .choices button:hover {
+            background: #56FFFF;
+            color: #000000;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(86, 255, 255, 0.3);
+        }
+
+        .choices button:active {
+            transform: scale(0.97);
+        }
+
+        /* Всплывающий индикатор с иконкой */
+        .toast {
+            position: fixed;
+            top: 15vh;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 16px 24px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+            display: none; /* hidden by default */
+            z-index: 9999;
+            /* will be set to flex via JS when shown */
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toast-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Адаптивность */
+        /* @media (max-width: 480px) {
+            :root {
+                --bubble-top: 6%;
+                --bubble-left: 38%;
+                --bubble-width: 60%;
+            }
+
+            .visitor-img {
+                width: min(44%, 200px);
+                max-height: 78%;
+            }
+
+            .speech-text {
+                top: calc(var(--bubble-top) + 11%);
+                left: calc(var(--bubble-left) + 8%);
+                width: calc(var(--bubble-width) - 16%);
+                max-height: 48%;
+                font-size: clamp(13px, 3.6vw, 18px);
+            }
+
+            .choices {
+                margin: 10px 12px 4vh 12px;
+                /// сохраняем отступы
+            }
+
+            .choices button {
+                padding: 18px 16px;
+                font-size: 1rem;
+            }
+        } */
+
+        /* @media (min-width: 600px) {
+            .choices {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                margin: 10px 0 5vh 0;
+            }
+
+            .speech-text {
+                font-size: clamp(16px, 2.4vw, 20px);
+            }
+
+            .choices button {
+                padding: 18px 20px;
+                font-size: 1.1rem;
+            }
+        } */
+
+        /* @media (min-width: 768px) {
+            :root {
+                --bubble-top: 7%;
+                --bubble-left: 41%;
+                --bubble-width: 56%;
+            }
+        } */
+
+        /* @media (min-width: 992px) {
+            .speech-text {
+                font-size: clamp(18px, 2.6vw, 22px);
+            }
+
+            .choices button {
+                font-size: 1.2rem;
+                padding: 20px 24px;
+            }
+        } */
+
+        /* Экран выбора уровней */
+        .hidden { display: none; }
+        
+        /* По умолчанию скрываем оба экрана */
+        .level-screen, .game-wrapper { display: none; }
+        
+        /* Показываем экраны когда не скрыты */
+        .level-screen:not(.hidden) { display: flex !important; flex-direction: column; align-items: center; }
+        .game-wrapper:not(.hidden) { display: flex !important; }
+        
+        /* Принудительно скрываем когда есть класс hidden */
+        .level-screen.hidden, .game-wrapper.hidden { display: none !important; }
+
+        .level-screen {
+            width: 100%;
+            max-width: 900px;
+            margin: 20px auto 0 auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .level-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            max-width: 720px;
+        }
+
+        .level-btn {
+            position: relative;
+            border: none;
+            border-radius: 12px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            background: #eee;
+            cursor: pointer;
+            padding: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .level-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.18); }
+        .level-btn.selected { outline: 3px solid #D4AF37; }
+        .level-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .level-title-overlay {
+            position: absolute;
+            left: 0; right: 0; bottom: 0;
+            padding: 8px 10px;
+            background: linear-gradient(transparent, rgba(0,0,0,0.55));
+            color: #fff;
+            font-weight: 700;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+        }
+
+        .level-info {
+            width: 100%;
+            max-width: 720px;
+            background: rgba(0,0,0,0.65);
+            border-radius: 12px;
+            padding: 14px 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
+
+        .level-info h2 { margin: 0 0 8px 0; font-size: 1.25rem; color: #56FFFF; }
+        .level-info p { margin: 0 0 12px 0; line-height: 1.4; color: #56FFFF; }
+        .play-btn {
+            padding: 12px 18px;
+            border: 3px solid #56FFFF;
+            border-radius: 10px;
+            background: #000000;
+            color: #56FFFF;
+            font-family: 'Gazprombank Sans DemiBold', "Segoe UI", Roboto, Arial, sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.2s ease, transform 0.1s ease;
+        }
+        .play-btn:hover { background: #56FFFF; color: #000000; }
+        .play-btn:active { transform: scale(0.98); }
+        .play-btn:disabled { opacity: 0.5; cursor: default; }
+
+        /* Модальное окно (пауза/результат) */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; z-index: 10000; }
+        .modal-overlay.hidden { display: none; }
+
+        /* Анимация скрытия экрана выбора уровней */
+        .level-screen.fade-out {
+            opacity: 0;
+            transform: translateY(-20px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        .modal-box { width: min(92vw, 520px); background: #fff; border-radius: 14px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+        .modal-box h2 { margin: 0 0 8px 0; font-size: 1.4rem; color: #56FFFF; }
+        .modal-box p { margin: 0 0 14px 0; line-height: 1.45; color: #56FFFF; }
+        .modal-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .btn { padding: 10px 14px; border: 3px solid #56FFFF; border-radius: 10px; font-family: 'Gazprombank Sans DemiBold', "Segoe UI", Roboto, Arial, sans-serif; font-weight: 700; cursor: pointer; }
+        .btn-primary { background: #000000; color: #56FFFF; }
+        .btn-primary:hover { background: #56FFFF; color: #000000; }
+        .btn-secondary { background: #000000; color: #56FFFF; }
+        .btn-secondary:hover { background: #56FFFF; color: #000000; }
+
+        /* Кнопка открытия меню (слева сверху) */
+        .menu-fab {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 10001;
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 3px solid #56FFFF;
+            background: #000000;
+            color: #56FFFF;
+            font-family: 'Gazprombank Sans DemiBold', "Segoe UI", Roboto, Arial, sans-serif;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .menu-fab:hover { background: #56FFFF; color: #000000; }
+    </style>
+</head>
+
+<body>
+    <header>
+        <div class="score-item">
+            <!-- <img src="coin-icon.png" class="score-icon" alt="Счёт"> -->
+            <id="score-label">Баллы</>
+            <span id="score">0</span>
+        </div>
+        <!-- <div class="score-item">
+            <img src="visitor-icon.png" class="score-icon" alt="Посетители">
+            <span id="visitor-count">0</span>
+        </div> -->
+    </header>
+
+    <!-- Экран выбора уровней -->
+    <div id="level-screen" class="level-screen">
+        <div class="level-grid" id="level-grid"></div>
+        <div class="level-info">
+            <h2 id="level-title">Выберите уровень</h2>
+            <p id="level-desc">Нажмите на одну из карточек уровней выше, чтобы увидеть описание.</p>
+            <button id="play-btn" class="play-btn" disabled>Играть</button>
+        </div>
+    </div>
+
+    <!-- Игровой экран -->
+    <div id="game-screen" class="game-wrapper hidden">
+        <button id="open-menu-btn" class="menu-fab hidden" aria-label="Меню">≡</button>
+        <!-- Сцена -->
+        <div class="scene">
+            <div class="scene-anchor">
+                <img id="visitor-img" class="visitor-img" src="visitor1.png" alt="Посетитель">
+                <img class="speech" src="speech.png" alt="Облако">
+                <div id="speech-text" class="speech-text"></div>
+            </div>
+        </div>
+
+        <!-- Выбор -->
+        <div class="choices" id="answer-buttons"></div>
+    </div>
+
+    <div id="toast" class="toast">
+        <img id="toast-icon" class="toast-icon" src="coin-icon.png" alt="Результат">
+        <span id="toast-text"></span>
+    </div>
+
+    <!-- Модальные окна: пауза/результат -->
+    <div id="modal" class="modal-overlay hidden">
+        <div class="modal-box">
+            <h2 id="modal-title">Пауза</h2>
+            <p id="modal-text">Игра приостановлена.</p>
+            <div class="modal-actions">
+                <button id="btn-continue" class="btn btn-primary">Продолжить</button>
+                <button id="btn-replay" class="btn btn-secondary">Переиграть</button>
+                <button id="btn-menu" class="btn btn-secondary">В меню</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Уровни ---
+        const levels = [
+            {
+                id: 'level1',
+                title: 'Доисторическая эпоха',
+                desc: 'Первобытный банкинг и первые банкиры.',
+                thumb: 'level2.jpg',
+                type: 'internal-hard' // вариант усложнённых настроек
+            },
+            {
+                id: 'level2',
+                title: 'Наши дни',
+                desc: 'Самые современные банковские услуги..',
+                thumb: 'level1.jpg',
+                type: 'internal' // запускаем текущую игру
+            },
+            {
+                id: 'level3',
+                title: 'Пример интеграции внешних продуктов',
+                desc: 'Небольшой интерактивный рассказ о банковских услугах.',
+                thumb: 'level3.png',
+                type: 'link',
+                href: 'twine-game.html'
+            },
+            
+            {
+                id: 'level4',
+                title: 'Чемпионат на скорость1',
+                desc: 'Накопите 10 очков быстрее, чем истечёт время.',
+                thumb: 'level4.jpg',
+                type: 'internal-timed'
+            }
+        ];
+
+        // --- Управление ресурсами ---
+        function getGameResources(gameMode) {
+            const resources = {
+                normal: {
+                    visitors: [
+                        { img: 'visitor1.png' },
+                        { img: 'visitor2.png' },
+                        { img: 'visitor3.png' },
+                        { img: 'visitor4.png' }
+                    ],
+                    background: 'bank-bg.png',
+                    speech: 'speech.png'
+                },
+                hard: {
+                    visitors: [
+                        { img: 'ovisitor1.png' },
+                        { img: 'ovisitor2.png' },
+                        { img: 'ovisitor3.png' },
+                        { img: 'ovisitor4.png' }
+                    ],
+                    background: 'obank-bg.png',
+                    speech: 'ospeech.png'
+                },
+                timed: {
+                    visitors: [
+                        { img: 'visitor1.png' },
+                        { img: 'visitor2.png' },
+                        { img: 'visitor3.png' },
+                        { img: 'visitor4.png' }
+                    ],
+                    background: 'bank-bg.png',
+                    speech: 'speech.png'
+                }
+            };
+            
+            return resources[gameMode] || resources.normal;
+        }
+
+        // --- Текущие ресурсы игры ---
+        let currentResources = getGameResources('normal');
+        let visitors = currentResources.visitors;
+
+        // Функция применения ресурсов к интерфейсу
+        function applyGameResources(gameMode) {
+            currentResources = getGameResources(gameMode);
+            visitors = currentResources.visitors;
+            
+            // Обновляем фон body
+            document.body.style.backgroundImage = `url('${currentResources.background}'), linear-gradient(#F5F5DC, #F5F5DC)`;
+            
+            // Обновляем изображение речевого пузыря
+            const speechImg = document.querySelector('.speech');
+            if (speechImg) {
+                speechImg.src = currentResources.speech;
+            }
+            
+            // Если игра уже запущена, обновляем текущего персонажа
+            const visitorImg = document.getElementById('visitor-img');
+            if (visitorImg && !visitorImg.src.includes('visitor1.png')) {
+                // Сохраняем текущий индекс персонажа и обновляем на соответствующий из новых ресурсов
+                const currentIndex = getCurrentVisitorIndex(visitorImg.src);
+                if (currentIndex >= 0 && currentIndex < visitors.length) {
+                    visitorImg.src = visitors[currentIndex].img;
+                }
+            }
+        }
+
+        // Вспомогательная функция для определения текущего индекса персонажа
+        function getCurrentVisitorIndex(currentSrc) {
+            const filename = currentSrc.split('/').pop();
+            if (filename.includes('visitor1') || filename.includes('ovisitor1')) return 0;
+            if (filename.includes('visitor2') || filename.includes('ovisitor2')) return 1;
+            if (filename.includes('visitor3') || filename.includes('ovisitor3')) return 2;
+            if (filename.includes('visitor4') || filename.includes('ovisitor4')) return 3;
+            return 0; // по умолчанию первый
+        }
+        const requests = [
+            { text: 'У меня много мелочи, хочу поменять на крупные купюры', answer: 'мелкие' },
+            { text: 'Мне нужно разменять эту тысячную купюру', answer: 'крупные' },
+            { text: 'Хочу обменять доллары на рубли', answer: 'валюта' },
+            { text: 'Нужно отправить деньги родственникам в другой город', answer: 'перевод' },
+            { text: 'У меня куча монет, поменяйте на банкноты', answer: 'мелкие' },
+            { text: 'Разбейте мне эту пятитысячную, пожалуйста', answer: 'крупные' },
+            { text: 'Мне нужны евро вместо рублей', answer: 'валюта' },
+            { text: 'Переведите деньги на карту жены', answer: 'перевод' },
+            { text: 'Хочется избавиться от всей этой мелочевки', answer: 'мелкие' },
+            { text: 'Поменяйте крупную банкноту на разменные', answer: 'крупные' },
+            { text: 'Продам вам доллары по курсу', answer: 'валюта' },
+            { text: 'Нужно послать денег маме в деревню', answer: 'перевод' }
+        ];
+        const answers = [
+            { label: 'Разменять мелкие деньги', value: 'мелкие' },
+            { label: 'Разменять крупные деньги', value: 'крупные' },
+            { label: 'Сделать обмен валюты', value: 'валюта' },
+            { label: 'Отправить перевод', value: 'перевод' }
+        ];
+        let score = 0, visitorCount = 0, currentRequest = '';
+        let selectedLevel = null;
+        let mode = 'normal'; // normal | hard | timed
+
+        const speechEl = document.getElementById('speech-text');
+        const visitorImg = document.getElementById('visitor-img');
+        const btnContainer = document.getElementById('answer-buttons');
+        const toast = document.getElementById('toast');
+        const toastIcon = document.getElementById('toast-icon');
+        const toastText = document.getElementById('toast-text');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const btnContinue = document.getElementById('btn-continue');
+        const btnReplay = document.getElementById('btn-replay');
+        const btnMenu = document.getElementById('btn-menu');
+        const openMenuBtn = document.getElementById('open-menu-btn');
+
+        function initLevelSelect() {
+            const levelGrid = document.getElementById('level-grid');
+            const titleEl = document.getElementById('level-title');
+            const descEl = document.getElementById('level-desc');
+            const playBtn = document.getElementById('play-btn');
+
+            levels.forEach(lvl => {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn';
+                btn.innerHTML = `
+                    <img class="level-thumb" src="${lvl.thumb}" alt="${lvl.title}">
+                    <div class="level-title-overlay">${lvl.title}</div>
+                `;
+                btn.onclick = () => {
+                    selectedLevel = lvl;
+                    // визуально выделяем
+                    [...levelGrid.children].forEach(c => c.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    // показываем описание
+                    titleEl.textContent = lvl.title;
+                    descEl.textContent = lvl.desc;
+                    playBtn.disabled = false;
+                };
+                levelGrid.appendChild(btn);
+            });
+
+            playBtn.addEventListener('click', () => {
+                if (!selectedLevel) return;
+                
+                // Анимация скрытия экрана выбора уровней
+                const levelScreen = document.getElementById('level-screen');
+                levelScreen.classList.add('fade-out');
+                
+                // Запускаем игру после анимации
+                setTimeout(() => {
+                    if (selectedLevel.type === 'link' && selectedLevel.href) {
+                        window.open(selectedLevel.href, '_blank');
+                        return;
+                    }
+                    // Внутренние режимы — запускаем на той же странице
+                    if (selectedLevel.type === 'internal') {
+                        mode = 'normal';
+                        applyGameResources('normal');
+                        startGame();
+                        return;
+                    }
+                    if (selectedLevel.type === 'internal-hard') {
+                        mode = 'hard';
+                        applyGameResources('hard');
+                        startGame();
+                        return;
+                    }
+                    if (selectedLevel.type === 'internal-timed') {
+                        mode = 'timed';
+                        applyGameResources('normal');
+                        startGame();
+                        return;
+                    }
+                }, 300); // 300ms = время анимации
+            });
+        }
+
+        function startGame() {
+            document.getElementById('game-screen').classList.remove('hidden');
+            openMenuBtn.classList.remove('hidden');
+            initGame();
+        }
+
+        function initGame() {
+            toast.style.display = 'none';
+            toastText.textContent = '';
+            score = 0; visitorCount = 0; currentRequest = '';
+            btnContainer.innerHTML = '';
+            answers.forEach(a => {
+                const btn = document.createElement('button');
+                btn.textContent = a.label;
+                btn.onclick = () => select(a.value);
+                btnContainer.appendChild(btn);
+            });
+            nextVisitor();
+            if (mode === 'timed') startTimer();
+        }
+
+        function nextVisitor() {
+            if (score >= 10) { return endGame(true); }
+            if (score <= -5) { return endGame(false); }
+            visitorCount++;
+            updateScore();
+
+            // Новый запрос и персонаж
+            let req = requests[Math.floor(Math.random() * requests.length)];
+            if (mode === 'hard') {
+                // В «hard» повышаем шанс запутанных формулировок (просто берём ещё раз случай)
+                if (Math.random() < 0.5) req = requests[Math.floor(Math.random() * requests.length)];
+            }
+            currentRequest = req.answer;
+            speechEl.textContent = req.text;
+            const vis = visitors[Math.floor(Math.random() * visitors.length)];
+            visitorImg.src = vis.img;
+        }
+
+        function select(value) {
+            // 1) посчитать результат
+            const wasCorrect = (value === currentRequest);
+            score += wasCorrect ? 1 : -1;
+            updateScore();
+
+            // 2) сразу переключить на нового посетителя и новый вопрос
+            nextVisitor(); // это обновит персонажа, вопрос и проверит победу/поражение
+
+            // Если наступила победа/поражение, nextVisitor сам покажет тост и отключит кнопки,
+            // в этом случае второй тост не нужен:
+            if (score >= 10 || score <= -5) return;
+
+            // 3) через короткую задержку показать тост по предыдущему ответу
+            setTimeout(() => {
+                toastMsg(wasCorrect ? '✅ Верно +1' : '❌ Ошибка -1', 'coin-icon.png');
+            }, 150); // 100–200 мс достаточно, чтобы экран уже сменился
+        }
+
+
+        function toastMsg(msg, iconSrc) {
+            toastText.textContent = msg;
+            toastIcon.src = iconSrc;
+            toast.style.display = 'flex';
+            setTimeout(() => { toast.style.display = 'none'; }, 2000);
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            // document.getElementById('visitor-count').textContent = visitorCount;
+        }
+
+        function disableButtons() {
+            [...btnContainer.querySelectorAll('button')].forEach(b => b.disabled = true);
+        }
+
+        // Таймер для режима timed
+        let timerId = null, remaining = 60;
+        function startTimer() {
+            remaining = 60;
+            timerId = setInterval(() => {
+                remaining--;
+                if (remaining <= 0) {
+                    clearInterval(timerId);
+                    timerId = null;
+                    endGame(score >= 10);
+                }
+            }, 1000);
+        }
+
+        function pauseTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+        function resumeTimer() { if (mode === 'timed' && !timerId) startTimer(); }
+
+        // Пауза/результат
+        let isPaused = false;
+        function showPause() {
+            if (isPaused) return;
+            isPaused = true;
+            disableButtons();
+            pauseTimer();
+            modalTitle.textContent = 'Пауза';
+            modalText.textContent = 'Игра приостановлена.';
+            btnContinue.style.display = '';
+            modal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+        }
+
+        function continueGame() {
+            hideModal();
+            isPaused = false;
+            enableButtons();
+            resumeTimer();
+        }
+
+        function endGame(won) {
+            disableButtons();
+            pauseTimer();
+            modalTitle.textContent = won ? 'Результат: Победа' : 'Результат: Поражение';
+            modalText.textContent = won ? 'Вы набрали 10 очков. Отличная работа!' : 'Вы достигли лимита ошибок. Попробуйте снова!';
+            btnContinue.style.display = 'none';
+            modal.classList.remove('hidden');
+        }
+
+        function enableButtons() {
+            [...btnContainer.querySelectorAll('button')].forEach(b => b.disabled = false);
+        }
+
+        // Кнопки модалки
+        btnContinue.addEventListener('click', continueGame);
+        btnReplay.addEventListener('click', () => {
+            hideModal();
+            isPaused = false;
+            startGame();
+        });
+        btnMenu.addEventListener('click', () => {
+            hideModal();
+            isPaused = false;
+            backToMenu();
+        });
+
+        function backToMenu() {
+            pauseTimer();
+            document.getElementById('game-screen').classList.add('hidden');
+            const levelScreen = document.getElementById('level-screen');
+            levelScreen.classList.remove('fade-out'); // Убираем класс анимации
+            openMenuBtn.classList.add('hidden');
+        }
+
+        // Горячая клавиша 'm' — меню (пауза)
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'm' || e.key === 'M') {
+                // показываем паузу только если игровой экран активен
+                if (!document.getElementById('game-screen').classList.contains('hidden')) {
+                    showPause();
+                }
+            }
+        });
+
+        openMenuBtn.addEventListener('click', () => {
+            if (!document.getElementById('game-screen').classList.contains('hidden')) {
+                showPause();
+            }
+        });
+
+        window.addEventListener('load', () => {
+            // Сначала скрываем все экраны
+            document.getElementById('level-screen').classList.add('hidden');
+            document.getElementById('game-screen').classList.add('hidden');
+            
+            // БЫСТРАЯ ОТЛАДКА: автозапуск первой игры (закомментируйте для обычной работы)
+            const DEBUG_AUTO_START = false;
+            if (DEBUG_AUTO_START && !window.location.search) {
+                mode = 'normal';
+                applyGameResources('normal');
+                document.getElementById('game-screen').classList.remove('hidden');
+                document.getElementById('open-menu-btn').classList.remove('hidden');
+                initGame();
+                return;
+            }
+            
+            // Проверяем URL параметры для автозапуска игры
+            const params = new URLSearchParams(window.location.search);
+            const l = params.get('l');
+            if (l) {
+                const map = {
+                    'level1': { type: 'internal', mode: 'normal' },
+                    'level3': { type: 'internal-hard', mode: 'hard' },
+                    'level4': { type: 'internal-timed', mode: 'timed' }
+                };
+                const conf = map[l];
+                if (conf) {
+                    mode = conf.mode;
+                    applyGameResources(conf.mode);
+                    document.getElementById('game-screen').classList.remove('hidden');
+                    document.getElementById('open-menu-btn').classList.remove('hidden');
+                    initGame();
+                    return; // Не инициализируем level-screen
+                }
+            }
+            
+            // Если нет параметров уровня, показываем экран выбора уровней
+            document.getElementById('level-screen').classList.remove('hidden');
+            initLevelSelect();
+        });
+    </script>
+</body>
+
+</html>
