@@ -38,13 +38,12 @@ window.addEventListener('load', () => {
     
     // Если нет параметров уровня, показываем экран выбора уровней
     showMainMenu();
+    initLevelSelect();
 });
 
 function showMainMenu() {
     document.getElementById('level-screen').classList.remove('hidden');
     document.getElementById('game-header').classList.add('hidden');
-    //audioManager.playMusic('mainMenu');
-    initLevelSelect();
 }
 
 function showGameScreen() {
