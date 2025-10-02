@@ -4,7 +4,7 @@ const levels = [
         id: 'level1',
         title: 'Доисторическая эпоха',
         desc: 'Первобытный банкинг и первые банкиры.',
-        thumb: 'assets/images/levels/level2.jpg',
+        thumb: 'assets/images/levels/old_era.png',
         type: 'internal-hard' // вариант усложнённых настроек
     },
 
@@ -12,7 +12,7 @@ const levels = [
         id: 'level2',
         title: 'Наши дни',
         desc: 'Самые современные банковские услуги..',
-        thumb: 'assets/images/levels/level1.jpg',
+        thumb: 'assets/images/levels/new_era.png',
         type: 'internal' // запускаем текущую игру
     },
     // {
@@ -28,7 +28,7 @@ const levels = [
         id: 'level4',
         title: 'Чемпионат на скорость',
         desc: 'Накопите 10 очков быстрее, чем истечёт время.',
-        thumb: 'assets/images/levels/level4.jpg',
+        thumb: 'assets/images/levels/timer_era.png',
         type: 'internal-timed'
     }
 ];
